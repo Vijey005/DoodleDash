@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ruff / Linters
+.ruff_cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Training data (too large for GitHub)
+ai_model/data/
+
+# Logs & temp files
+*.log
+*.txt
+!requirements.txt
+!ai_model/classes.txt
+
+# Antigravity / Gemini
+.gemini/

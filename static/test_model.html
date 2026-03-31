@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>DoodleDash Model Tester</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            border: 2px solid #2d2d2d;
+            border-radius: 8px;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        .grid-visual {
+            display: grid;
+            grid-template-columns: repeat(28, 1fr);
+            width: 280px;
+            height: 280px;
+            border: 2px solid #ccc;
+        }
+
+        .pixel {
+            width: 10px;
+            height: 10px;
+            background: white;
+        }
+
+        .controls {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            background: #2d2d2d;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        #btn-clear {
+            background: #ef5350;
+        }
+
+        #btn-predict {
+            background: #66bb6a;
+        }
+
+        .result-box {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            min-height: 100px;
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .bar-bg {
+            flex: 1;
+            height: 10px;
+            background: #eee;
+            margin: 0 10px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: #42a5f5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🧠 AI Model Tester</h1>
+    <p>Draw below to inspect exactly what is sent to the model.</p>
+
+    <div class="container">
+        <!-- Drawing Area -->
+        <div class="card">
+            <h3>1. Draw Here</h3>
+            <canvas id="canvas" width="400" height="400"></canvas>
+            <div class="controls">
+                <button id="btn-clear"><i class="ph-bold ph-eraser"></i> Clear</button>
+                <button id="btn-predict"><i class="ph-bold ph-lightning"></i> Process & Predict</button>
+            </div>
+        </div>
+
+        <!-- Visualization Area -->
+        <div class="card">
+            <h3>2. Model Input (28x28)</h3>
+            <div id="grid-visual" class="grid-visual"></div>
+            <div style="margin-top:10px; color:#666; font-size:0.9rem;">
+                White squares = 0 (Background)<br>
+                Black squares = 255 (Ink)
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div class="card" style="width: 250px;">
+            <h3>3. Prediction</h3>
+            <div id="result-box" class="result-box">
+                Draw something...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+
+        // Init Canvas
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, 400, 400);
+
+        // Events
+        canvas.addEventListener("pointerdown", e => {
+            isDrawing = true;
+            const p = getPos(e);
+            lastX = p.x; lastY = p.y;
+            canvas.setPointerCapture(e.pointerId);
+        });
+        canvas.addEventListener("pointermove", e => {
+            if (!isDrawing) return;
+            const p = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(p.x, p.y);
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 15; // MATCH GAME SETTING
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.stroke();
+            lastX = p.x; lastY = p.y;
+        });
+        canvas.addEventListener("pointerup", () => isDrawing = false);
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        document.getElementById("btn-clear").onclick = () => {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, 400, 400);
+            document.getElementById("result-box").innerHTML = "Cleared.";
+            renderGrid(new Array(784).fill(0));
+        };
+
+        document.getElementById("btn-predict").onclick = async () => {
+            const pixels = getCanvas28x28(canvas);
+            renderGrid(pixels);
+
+            // Send to API
+            try {
+                const res = await fetch("/api/test-predict", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ pixels: pixels })
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    document.getElementById("result-box").innerHTML = `<span style="color:red">Error: ${data.error}</span>`;
+                    return;
+                }
+
+                let html = `<div style="font-size:1.5rem; font-weight:bold; margin-bottom:10px;">${data.guess} (${Math.round(data.confidence)}%)</div>`;
+                data.top_guesses.forEach(g => {
+                    html += `
+                    <div class="bar-container">
+                        <div style="width:70px;">${g.label}</div>
+                        <div class="bar-bg"><div class="bar-fill" style="width:${g.confidence}%"></div></div>
+                        <div>${g.confidence}%</div>
+                    </div>`;
+                });
+                document.getElementById("result-box").innerHTML = html;
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById("result-box").innerText = "Network Error";
+            }
+        };
+
+        function renderGrid(pixels) {
+            const grid = document.getElementById("grid-visual");
+            grid.innerHTML = "";
+            pixels.forEach(val => {
+                const div = document.createElement("div");
+                div.className = "pixel";
+                // 0 is background (White), 255 is ink (Black)
+                // So we want color = 255 - val for visual
+                const c = 255 - val;
+                div.style.backgroundColor = `rgb(${c},${c},${c})`;
+                grid.appendChild(div);
+            });
+        }
+
+        // --- THE CRITICAL LOGIC FROM GAME.JS ---
+        function getCanvas28x28(cvs) {
+            const srcW = cvs.width, srcH = cvs.height;
+            if (srcW === 0 || srcH === 0) return new Array(784).fill(0);
+
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = srcW; tempCanvas.height = srcH;
+            const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
+
+            // Draw white bg then image
+            tempCtx.fillStyle = "#ffffff";
+            tempCtx.fillRect(0, 0, srcW, srcH);
+            tempCtx.drawImage(cvs, 0, 0);
+
+            const srcData = tempCtx.getImageData(0, 0, srcW, srcH).data;
+
+            // Bounding box (finding ANY un-white pixel)
+            let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
+            let hasContent = false;
+
+            for (let y = 0; y < srcH; y++) {
+                for (let x = 0; x < srcW; x++) {
+                    const idx = (y * srcW + x) * 4;
+                    const r = srcData[idx];
+                    const g = srcData[idx + 1];
+                    const b = srcData[idx + 2];
+
+                    // If not white
+                    if (r < 240 || g < 240 || b < 240) {
+                        hasContent = true;
+                        if (x < minX) minX = x;
+                        if (x > maxX) maxX = x;
+                        if (y < minY) minY = y;
+                        if (y > maxY) maxY = y;
+                    }
+                }
+            }
+
+            if (!hasContent) return new Array(784).fill(0);
+
+            // Crop dimensions
+            const cropW = maxX - minX + 1;
+            const cropH = maxY - minY + 1;
+
+            // Fit into 20x20 box, centered in 28x28
+            const targetSize = 20;
+            const scale = targetSize / Math.max(cropW, cropH);
+
+            const scaledW = cropW * scale;
+            const scaledH = cropH * scale;
+
+            const outCanvas = document.createElement("canvas");
+            outCanvas.width = 28;
+            outCanvas.height = 28;
+            const outCtx = outCanvas.getContext("2d");
+
+            // Fill with white background
+            outCtx.fillStyle = "white";
+            outCtx.fillRect(0, 0, 28, 28);
+
+            // Draw centered
+            const dx = 4 + (20 - scaledW) / 2;
+            const dy = 4 + (20 - scaledH) / 2;
+
+            outCtx.imageSmoothingEnabled = true;
+            outCtx.imageSmoothingQuality = "high";
+
+            outCtx.drawImage(
+                tempCanvas,
+                minX, minY, cropW, cropH,
+                dx, dy, scaledW, scaledH
+            );
+
+            // Extract pixel data
+            const outData = outCtx.getImageData(0, 0, 28, 28).data;
+            const pixels = [];
+
+            for (let i = 0; i < outData.length; i += 4) {
+                const r = outData[i];
+                const g = outData[i + 1];
+                const b = outData[i + 2];
+
+                // Invert: White(255) -> 0, Black(0) -> 255
+                const darkest = Math.min(r, g, b);
+                let inverted = 255 - darkest;
+
+                // Threshold
+                if (inverted < 20) inverted = 0;
+
+                pixels.push(Math.floor(inverted));
+            }
+
+            return pixels;
+        }
+    </script>
+</body>
+
+</html>

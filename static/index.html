@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>DoodleDash! ✏️</title>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Balsamiq+Sans:wght@700&family=Patrick+Hand&display=swap"
+        rel="stylesheet">
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <!-- SCREEN 1: ENTRY -->
+    <div id="screen-entry" class="screen active">
+        <div class="doodle-card">
+            <div class="logo-title">
+                <i class="ph-duotone ph-pencil-simple logo-icon"></i>
+                <div class="logo-text">
+                    Doodle<span class="logo-highlight">Dash</span>
+                </div>
+            </div>
+            <p class="tagline">Draw. Guess. Laugh!</p>
+
+            <div class="field-group">
+                <label class="field-label">My Name Is:</label>
+                <input type="text" id="nickname-input" class="field-input" placeholder="Start typing..."
+                    autocomplete="off">
+            </div>
+
+            <!-- Avatar -->
+            <div class="avatar-section">
+                <div id="avatar-preview-container" class="avatar-big"></div>
+
+                <div class="avatar-controls-grid">
+                    <div class="control-row">
+                        <button id="btn-prev-eyes" class="mini-btn"><i class="ph-bold ph-caret-left"></i></button>
+                        <span>Eyes</span>
+                        <button id="btn-next-eyes" class="mini-btn"><i class="ph-bold ph-caret-right"></i></button>
+                    </div>
+                    <div class="control-row">
+                        <button id="btn-prev-mouth" class="mini-btn"><i class="ph-bold ph-caret-left"></i></button>
+                        <span>Mouth</span>
+                        <button id="btn-next-mouth" class="mini-btn"><i class="ph-bold ph-caret-right"></i></button>
+                    </div>
+                    <div class="control-row">
+                        <button id="btn-prev-skin" class="mini-btn"><i class="ph-bold ph-caret-left"></i></button>
+                        <span>Skin</span>
+                        <button id="btn-next-skin" class="mini-btn"><i class="ph-bold ph-caret-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btn-create-room" class="btn btn-primary btn-lg">
+                <i class="ph-bold ph-plus-circle"></i> Create Room
+            </button>
+
+            <p style="text-align:center; margin: 15px 0;">— OR —</p>
+
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="room-code-input" class="field-input" placeholder="CODE" maxlength="6"
+                    style="text-align:center; text-transform:uppercase; letter-spacing: 2px; font-weight: bold;">
+                <button id="btn-join-room" class="btn btn-secondary">
+                    Join <i class="ph-bold ph-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: LOBBY -->
+    <div id="screen-lobby" class="screen">
+        <div class="doodle-card">
+            <h2 class="screen-title">The Lobby</h2>
+
+            <div style="text-align:center;">
+                <label>Room Code:</label>
+                <div class="code-badge-wrap">
+                    <span id="lobby-room-code" class="code-badge">??????</span>
+                    <button id="btn-copy-code" class="btn-icon" title="Copy"><i class="ph-bold ph-copy"></i></button>
+                </div>
+            </div>
+
+            <div id="lobby-players" style="margin: 20px 0; min-height: 100px;"></div>
+
+            <div id="host-controls" class="hidden" style="text-align:center;">
+                <div style="margin-bottom: 20px;">
+                    <label style="font-weight:bold;">Rounds:</label>
+                    <div class="round-selector">
+                        <button class="btn btn-round" data-rounds="2">2</button>
+                        <button class="btn btn-round active" data-rounds="3">3</button>
+                        <button class="btn btn-round" data-rounds="5">5</button>
+                        <button class="btn btn-round" data-rounds="7">7</button>
+                    </div>
+                </div>
+                <button id="btn-start-game" class="btn btn-primary btn-lg">
+                    <i class="ph-fill ph-rocket-launch"></i> Start Game!
+                </button>
+            </div>
+
+            <div id="guest-wait" class="hidden" style="text-align:center; padding: 20px;">
+                <i class="ph-duotone ph-hourglass-medium" style="font-size: 2rem;"></i>
+                <p>Waiting for host...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: VOTE CATEGORY -->
+    <div id="screen-category-vote" class="screen">
+        <div class="doodle-card">
+            <h2 class="screen-title">Vote!</h2>
+            <p style="text-align:center;">Pick a theme for Round <span id="vote-round">1</span></p>
+            <div id="category-options"
+                style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top:20px;"></div>
+            <p id="vote-status" style="text-align:center; margin-top:10px; font-weight:bold;"></p>
+        </div>
+    </div>
+
+    <!-- SCREEN 4: WORD SELECT -->
+    <div id="screen-word-select" class="screen">
+        <div class="doodle-card">
+            <h2 id="word-select-title" class="screen-title">Pick Word</h2>
+            <p id="word-select-subtitle" style="text-align:center; margin-bottom:15px;"></p>
+            <div id="word-options" style="display:flex; flex-direction:column; gap: 10px;"></div>
+            <p id="word-status" style="text-align:center; margin-top:10px;"></p>
+        </div>
+    </div>
+
+    <!-- SCREEN 5: GAME -->
+    <div id="screen-game" class="screen">
+        <div class="game-layout">
+            <!-- Header -->
+            <header class="game-header">
+                <div class="game-info-badge">
+                    Round <span id="game-round">1</span>/<span id="game-total-rounds">3</span>
+                </div>
+                <div id="game-word-display" class="word-display">_ _ _ _</div>
+                <div id="game-timer" class="timer-display">60</div>
+            </header>
+
+            <!-- Sidebar -->
+            <aside class="scoreboard">
+                <h3 style="margin-bottom: 10px; text-decoration: underline;">Players</h3>
+                <div id="game-players"></div>
+            </aside>
+
+            <!-- Canvas -->
+            <main class="canvas-area">
+                <div class="canvas-wrapper">
+                    <canvas id="draw-canvas" width="600" height="600"></canvas>
+                </div>
+
+                <!-- Tools -->
+                <div id="draw-tools" class="draw-tools hidden">
+                    <div style="display:flex; gap:5px;">
+                        <div class="color-btn active" data-color="#2d2d2d" style="background:#2d2d2d;"></div>
+                        <div class="color-btn" data-color="#ef5350" style="background:#ef5350;"></div>
+                        <div class="color-btn" data-color="#42a5f5" style="background:#42a5f5;"></div>
+                        <div class="color-btn" data-color="#66bb6a" style="background:#66bb6a;"></div>
+                        <div class="color-btn" data-color="#ffa726" style="background:#ffa726;"></div>
+                    </div>
+                    <div style="width: 2px; background: #ddd; margin: 0 10px;"></div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="tool-btn active-tool" id="btn-pen" title="Pen"><i
+                                class="ph-bold ph-pencil-simple"></i></button>
+                        <button class="tool-btn" id="btn-eraser" title="Eraser"><i
+                                class="ph-bold ph-eraser"></i></button>
+                        <button class="tool-btn" id="btn-clear" title="Trash"><i class="ph-bold ph-trash"></i></button>
+                    </div>
+                </div>
+
+                <!-- AI Guess -->
+                <div class="ai-guess-bar">
+                    <i class="ph-duotone ph-robot logo-icon" style="font-size: 2rem;"></i>
+                    <div style="flex:1;">
+                        <span style="font-size: 0.9rem;">I think it's:</span>
+                        <div id="ai-guess-word" class="ai-guess-word">...</div>
+                    </div>
+                    <div id="ai-confidence" class="game-info-badge" style="background:var(--hl-pink);">0%</div>
+                </div>
+            </main>
+
+            <!-- Chat (Desktop) -->
+            <aside class="chat-panel">
+                <div id="chat-messages" class="chat-messages"></div>
+                <div class="chat-input-wrap">
+                    <input id="chat-input" class="chat-input" placeholder="Type guess..." maxlength="50">
+                    <button id="btn-send-chat" class="btn-icon"
+                        style="background:var(--hl-cyan); border:2px solid black;"><i
+                            class="ph-bold ph-paper-plane-right"></i></button>
+                </div>
+            </aside>
+
+            <!-- Mobile Chat Bar (shows last message, tap to expand) -->
+            <div id="mobile-chat-bar" class="mobile-chat-bar" title="Tap to open chat">
+                <i class="ph-bold ph-chat-dots" style="font-size:1.2rem; flex-shrink:0;"></i>
+                <span id="mobile-chat-last" class="mobile-chat-last">No messages yet...</span>
+                <i class="ph-bold ph-caret-up" style="font-size:1rem; flex-shrink:0; opacity:0.5;"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Chat Popup (full overlay) -->
+    <div id="mobile-chat-popup" class="mobile-chat-popup hidden">
+        <div class="mobile-chat-popup-inner">
+            <div class="mobile-chat-popup-header">
+                <h3><i class="ph-bold ph-chat-dots"></i> Chat</h3>
+                <button id="btn-close-mobile-chat" class="btn-icon"
+                    style="background:var(--hl-pink); border:2px solid black;">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+            <div id="mobile-chat-messages" class="chat-messages mobile-chat-messages-list"></div>
+            <div class="chat-input-wrap">
+                <input id="mobile-chat-input" class="chat-input" placeholder="Type guess..." maxlength="50">
+                <button id="btn-mobile-send-chat" class="btn-icon"
+                    style="background:var(--hl-cyan); border:2px solid black;"><i
+                        class="ph-bold ph-paper-plane-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCREEN: GAME OVER -->
+    <div id="screen-gameover" class="screen">
+        <div class="doodle-card" style="text-align:center;">
+            <i class="ph-fill ph-trophy" style="font-size: 4rem; color: #fbc02d; margin-bottom: 10px;"></i>
+            <h2 class="screen-title">Game Over!</h2>
+            <div id="rankings" style="margin: 20px 0; display:flex; flex-direction:column; gap:10px;"></div>
+
+            <button id="btn-play-again" class="btn btn-primary hidden"><i class="ph-bold ph-arrows-clockwise"></i> Play
+                Again</button>
+            <button id="btn-leave" class="btn btn-secondary" style="margin-top:10px;"><i
+                    class="ph-bold ph-door-open"></i> Leave</button>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div id="overlay-result" class="overlay hidden">
+        <div class="overlay-content">
+            <div id="overlay-icon" class="overlay-icon">⭐</div>
+            <h2 id="overlay-title" class="overlay-title">Nice!</h2>
+            <p id="overlay-body" class="overlay-body"></p>
+        </div>
+    </div>
+
+    <div id="toast-container"
+        style="position:fixed; top:20px; right:20px; display:flex; flex-direction:column; gap:10px; pointer-events:none; z-index:10000;">
+    </div>
+
+    <script src="/static/game.js"></script>
+</body>
+
+</html>
