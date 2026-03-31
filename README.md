@@ -162,5 +162,5 @@ This project is open source and available for educational purposes.
 ---
 
 <p align="center">
-  <b>Made with ❤️ and lots of doodles</b>
+  <b>Made by Vijey</b>
 </p>
