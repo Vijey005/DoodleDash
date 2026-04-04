@@ -44,7 +44,6 @@
         playTone: (freq, type, duration, vol = 0.1) => {
             if (!Sound.ctx) Sound.init();
             if (!Sound.ctx) return;
-            // Always try to resume if suspended (e.g. autoplay policy)
             if (Sound.ctx.state === 'suspended') Sound.resume();
 
             const osc = Sound.ctx.createOscillator();
@@ -61,23 +60,60 @@
             osc.start();
             osc.stop(Sound.ctx.currentTime + duration);
         },
+        // UI interactions
         playPop: () => Sound.playTone(600, "sine", 0.1, 0.1),
+        playClick: () => Sound.playTone(900, "sine", 0.05, 0.08),
+        // Positive events
         playJoin: () => {
-            Sound.playTone(400, "sine", 0.1, 0.1);
-            setTimeout(() => Sound.playTone(600, "sine", 0.2, 0.1), 100);
+            Sound.playTone(400, "sine", 0.15, 0.12);
+            setTimeout(() => Sound.playTone(600, "sine", 0.15, 0.12), 120);
+            setTimeout(() => Sound.playTone(800, "sine", 0.25, 0.12), 240);
         },
         playStart: () => {
-            Sound.playTone(400, "square", 0.1, 0.1);
-            setTimeout(() => Sound.playTone(800, "square", 0.4, 0.1), 100);
+            Sound.playTone(500, "square", 0.1, 0.12);
+            setTimeout(() => Sound.playTone(700, "square", 0.1, 0.12), 120);
+            setTimeout(() => Sound.playTone(1000, "square", 0.35, 0.15), 240);
         },
         playCorrect: () => {
-            Sound.playTone(600, "sine", 0.1, 0.2);
-            setTimeout(() => Sound.playTone(1200, "sine", 0.3, 0.2), 100);
+            Sound.playTone(523, "sine", 0.12, 0.2);
+            setTimeout(() => Sound.playTone(659, "sine", 0.12, 0.2), 100);
+            setTimeout(() => Sound.playTone(784, "sine", 0.12, 0.2), 200);
+            setTimeout(() => Sound.playTone(1047, "sine", 0.4, 0.25), 300);
         },
-        playTick: () => Sound.playTone(800, "triangle", 0.05, 0.05),
+        playVoteSelect: () => {
+            Sound.playTone(700, "sine", 0.08, 0.1);
+            setTimeout(() => Sound.playTone(900, "sine", 0.12, 0.1), 80);
+        },
+        playCategoryResult: () => {
+            Sound.playTone(600, "triangle", 0.1, 0.15);
+            setTimeout(() => Sound.playTone(800, "triangle", 0.1, 0.15), 100);
+            setTimeout(() => Sound.playTone(1000, "triangle", 0.3, 0.15), 200);
+        },
+        // Countdown / Warning
+        playTick: () => Sound.playTone(800, "triangle", 0.05, 0.06),
+        playTickUrgent: () => {
+            Sound.playTone(1000, "square", 0.08, 0.12);
+        },
+        playVoteTick: () => Sound.playTone(600, "triangle", 0.04, 0.04),
+        // Negative events
+        playTimeUp: () => {
+            Sound.playTone(400, "sawtooth", 0.15, 0.2);
+            setTimeout(() => Sound.playTone(300, "sawtooth", 0.15, 0.2), 150);
+            setTimeout(() => Sound.playTone(200, "sawtooth", 0.5, 0.25), 300);
+        },
         playGameOver: () => {
-            Sound.playTone(300, "sawtooth", 0.2, 0.2);
-            setTimeout(() => Sound.playTone(250, "sawtooth", 0.4, 0.2), 200);
+            Sound.playTone(500, "sawtooth", 0.2, 0.15);
+            setTimeout(() => Sound.playTone(400, "sawtooth", 0.2, 0.15), 200);
+            setTimeout(() => Sound.playTone(300, "sawtooth", 0.2, 0.15), 400);
+            setTimeout(() => Sound.playTone(200, "sawtooth", 0.5, 0.2), 600);
+        },
+        playError: () => {
+            Sound.playTone(200, "square", 0.15, 0.15);
+            setTimeout(() => Sound.playTone(180, "square", 0.25, 0.15), 150);
+        },
+        playLeave: () => {
+            Sound.playTone(600, "sine", 0.1, 0.1);
+            setTimeout(() => Sound.playTone(400, "sine", 0.2, 0.1), 100);
         }
     };
 
@@ -92,6 +128,7 @@
     let avatarSkin = parseInt(sessionStorage.getItem("dd_avatar_skin") || "0");
     let roomId = null;
     let isHost = false;
+    let isSoloMode = false;
     let totalRounds = 3;
 
     // Game state
@@ -107,6 +144,10 @@
     let penSize = 25; // Increased to 25 to match relative thickness of test canvas (600x600 vs 400x400)
     let currentTool = "pen";
     let sendTimer = null;
+
+    // Stroke tracking for clean 28x28 rendering (avoids anti-aliasing blur)
+    let allStrokes = [];      // Array of { points: [{x,y},...], tool: "pen"|"eraser" }
+    let currentStroke = null;  // Stroke currently being drawn
 
 
 
@@ -142,11 +183,17 @@
         setTimeout(() => el.remove(), 3000);
     }
 
-    function showOverlay(icon, title, body, duration = 3000) {
+    function showOverlay(icon, title, body, duration = 3000, type = "success") {
         const ov = $("#overlay-result");
+        const content = $(".overlay-content");
         $("#overlay-icon").innerHTML = icon;
         $("#overlay-title").textContent = title;
         $("#overlay-body").textContent = body;
+
+        // Apply type-based shadow color
+        content.classList.remove("overlay-success", "overlay-fail", "overlay-info");
+        content.classList.add(`overlay-${type}`);
+
         ov.classList.remove("hidden");
         if (duration > 0) {
             setTimeout(() => ov.classList.add("hidden"), duration);
@@ -186,6 +233,20 @@
             nickname = nicknameInput.value.trim();
             if (!nickname) { toast("Name please!", "error"); return; }
             saveSession();
+            isSoloMode = false;
+            try {
+                const res = await fetch("/api/create-room", { method: "POST" });
+                const data = await res.json();
+                roomId = data.room_id;
+                connectWebSocket();
+            } catch (e) { toast("Error creating room", "error"); }
+        };
+
+        $("#btn-solo").onclick = async () => {
+            nickname = nicknameInput.value.trim();
+            if (!nickname) { toast("Name please!", "error"); return; }
+            saveSession();
+            isSoloMode = true;
             try {
                 const res = await fetch("/api/create-room", { method: "POST" });
                 const data = await res.json();
@@ -289,14 +350,15 @@
     function handleMessage(msg) {
         switch (msg.type) {
             case "joined": onJoined(msg); break;
-            case "error": toast(msg.message, "error"); break;
+            case "error": toast(msg.message, "error"); Sound.playError(); break;
             case "room_state": onRoomState(msg.room); break;
-            case "player_joined": if (msg.player.player_id !== playerId) { toast(`${msg.player.nickname} joined!`, "success"); Sound.playPop(); } break;
-            case "player_left": toast(`Someone left.`, "info"); break;
+            case "player_joined": if (msg.player.player_id !== playerId) { toast(`${msg.player.nickname} joined!`, "success"); Sound.playJoin(); } break;
+            case "player_left": toast(`Someone left.`, "info"); Sound.playLeave(); break;
 
             case "category_vote": onCategoryVote(msg); break;
             case "vote_update": $("#vote-status").textContent = `${msg.vote_count}/${msg.total_players} voted`; break;
-            case "category_result": showOverlay('<i class="ph-duotone ph-check-circle"></i>', msg.category, "Get ready!", 2000); Sound.playStart(); break;
+            case "vote_timer": onVoteTimer(msg); break;
+            case "category_result": showOverlay('<i class="ph-duotone ph-check-circle"></i>', msg.category, "Get ready!", 2000, "success"); Sound.playCategoryResult(); break;
 
             case "word_select": onWordSelect(msg); break;
 
@@ -307,14 +369,15 @@
             case "ai_guess": onAiGuess(msg); break;
             case "timer":
                 $("#game-timer").textContent = msg.remaining;
-                if (msg.remaining === 5) Sound.playTick(); // Tick on last 5
+                if (msg.remaining <= 5 && msg.remaining > 0) Sound.playTickUrgent();
+                else if (msg.remaining <= 10) Sound.playTick();
                 $("#game-timer").classList.toggle("warning", msg.remaining <= 10);
                 break;
             case "round_solved": onRoundSolved(msg); break;
             case "time_up":
                 drawingAllowed = false;
-                Sound.playGameOver();
-                showOverlay('<i class="ph-duotone ph-alarm"></i>', "Time's Up!", `Word was: ${msg.word}`);
+                Sound.playTimeUp();
+                showOverlay('<i class="ph-duotone ph-alarm"></i>', "Time's Up!", `Word was: ${msg.word}`, 3000, "fail");
                 break;
             case "round_result": renderGamePlayers(msg.players); break;
             case "stroke": onRemoteStroke(msg); break;
@@ -331,6 +394,16 @@
         showScreen("lobby");
         $("#lobby-room-code").textContent = roomId;
         $("#btn-copy-code").onclick = () => { navigator.clipboard.writeText(roomId); toast("Copied!", "success"); };
+
+        // Show/hide solo easter egg
+        const eggEl = $("#solo-easter-egg");
+        if (eggEl) {
+            if (isSoloMode) {
+                eggEl.classList.remove("hidden");
+            } else {
+                eggEl.classList.add("hidden");
+            }
+        }
 
         if (isHost) {
             $("#host-controls").classList.remove("hidden");
@@ -352,6 +425,12 @@
     function onRoomState(room) {
         if (room.state === "LOBBY") {
             showScreen("lobby");
+        }
+
+        // Hide solo easter egg if there are other players
+        const eggEl = $("#solo-easter-egg");
+        if (eggEl && room.players.length > 1) {
+            eggEl.classList.add("hidden");
         }
 
         const container = $("#lobby-players");
@@ -378,8 +457,22 @@
                 btn.classList.remove("btn-secondary"); btn.classList.add("btn-primary");
                 send({ action: "vote_category", category: btn.dataset.cat });
                 $("#vote-status").textContent = "Waiting for others...";
+                Sound.playVoteSelect();
             };
         });
+    }
+
+    function onVoteTimer(msg) {
+        const remaining = msg.remaining;
+        const statusEl = $("#vote-status");
+        if (statusEl) {
+            const existingText = statusEl.textContent;
+            // Preserve voting status info, append timer
+            const baseText = existingText.replace(/\s*⏱.*$/, "");
+            statusEl.textContent = `${baseText} ⏱ ${remaining}s`;
+        }
+        if (remaining <= 5 && remaining > 0) Sound.playTickUrgent();
+        else if (remaining <= 10) Sound.playVoteTick();
     }
 
     function onWordSelect(msg) {
@@ -398,6 +491,7 @@
                     send({ action: "vote_word", word: btn.dataset.word });
                     showScreen("game");
                     $("#word-status").textContent = "Good choice! Waiting...";
+                    Sound.playVoteSelect();
                 };
             });
         }
@@ -448,9 +542,11 @@
             ctx = canvas.getContext("2d", { willReadFrequently: true });
         }
 
-        // Fill white
+        // Fill white and reset stroke history
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        allStrokes = [];
+        currentStroke = null;
 
         // Add Listeners (it's safe to re-add named functions)
         canvas.removeEventListener("pointerdown", onPointerDown);
@@ -480,6 +576,8 @@
         $("#btn-clear").onclick = () => {
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            allStrokes = [];       // Reset stroke history
+            currentStroke = null;
             send({ action: "clear_canvas" });
             Sound.playPop();
         };
@@ -505,6 +603,9 @@
         const p = getPos(e);
         lastX = p.x; lastY = p.y;
         canvas.setPointerCapture(e.pointerId);
+
+        // Start tracking a new stroke for the 28x28 pipeline
+        currentStroke = { points: [{ x: p.x, y: p.y }], tool: currentTool };
     }
 
     function onPointerMove(e) {
@@ -520,11 +621,23 @@
         ctx.lineJoin = "round";
         ctx.stroke();
 
+        // Track coordinate for stroke-based 28x28 rendering
+        if (currentStroke) {
+            currentStroke.points.push({ x: p.x, y: p.y });
+        }
+
         send({ action: "stroke", points: [{ x: lastX, y: lastY }, { x: p.x, y: p.y }], color: ctx.strokeStyle, width: ctx.lineWidth });
         lastX = p.x; lastY = p.y;
     }
 
-    function onPointerUp(e) { isDrawing = false; }
+    function onPointerUp(e) {
+        // Finalize the current stroke into the history
+        if (currentStroke && currentStroke.points.length > 1) {
+            allStrokes.push(currentStroke);
+        }
+        currentStroke = null;
+        isDrawing = false;
+    }
 
     function onRemoteStroke(msg) {
         if (!ctx) return;
@@ -542,92 +655,130 @@
     function sendCanvasData() {
         if (!canvas || !drawingAllowed) return;
         try {
-            const pixels = getCanvas28x28(canvas);
-
-
+            const pixels = getCanvas28x28FromStrokes();
             send({ action: "draw_data", pixels: pixels });
         } catch (e) { console.error("Canvas error:", e); }
     }
 
-    function getCanvas28x28(cvs) {
-        const srcW = cvs.width, srcH = cvs.height;
-        if (srcW === 0 || srcH === 0) return new Array(784).fill(0);
+    /**
+     * Stroke-based 28x28 rendering.
+     * Instead of downscaling the large canvas pixels (which causes severe
+     * anti-aliasing blur that destroys fine details on complex drawings),
+     * we use the raw stroke coordinates collected during drawing.
+     *
+     * Process:
+     *  1. Compute bounding box from all pen-stroke coordinates.
+     *  2. Scale coordinates to fit inside a 20x20 area, centered in 28x28.
+     *  3. Redraw strokes on a fresh 28x28 canvas with a fixed line width.
+     *  4. Extract pixels and invert (white bg → 0, black stroke → 255).
+     *
+     * This produces sharp, unbroken lines regardless of drawing size,
+     * closely matching the QuickDraw .npy training data format.
+     */
+    function getCanvas28x28FromStrokes() {
+        // Gather all strokes including the one currently being drawn
+        const strokesToProcess = [...allStrokes];
+        if (currentStroke && currentStroke.points.length > 1) {
+            strokesToProcess.push(currentStroke);
+        }
 
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = srcW; tempCanvas.height = srcH;
-        const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-
-        // Draw white bg then image
-        tempCtx.fillStyle = "#ffffff";
-        tempCtx.fillRect(0, 0, srcW, srcH);
-        tempCtx.drawImage(cvs, 0, 0);
-
-        const srcData = tempCtx.getImageData(0, 0, srcW, srcH).data;
-
-        // Bounding box (finding ANY un-white pixel)
-        let minX = srcW, minY = srcH, maxX = 0, maxY = 0;
-        let hasContent = false;
-
-        for (let y = 0; y < srcH; y++) {
-            for (let x = 0; x < srcW; x++) {
-                const idx = (y * srcW + x) * 4;
-                const r = srcData[idx];
-                const g = srcData[idx + 1];
-                const b = srcData[idx + 2];
-
-                // If not white (allow some tolerance for anti-aliasing)
-                if (r < 240 || g < 240 || b < 240) {
-                    hasContent = true;
-                    if (x < minX) minX = x;
-                    if (x > maxX) maxX = x;
-                    if (y < minY) minY = y;
-                    if (y > maxY) maxY = y;
+        // Collect all PEN stroke points for bounding box calculation
+        // (eraser strokes don't define the drawing's extent)
+        const penPoints = [];
+        for (const stroke of strokesToProcess) {
+            if (stroke.tool === "pen") {
+                for (const pt of stroke.points) {
+                    penPoints.push(pt);
                 }
             }
         }
 
-        if (!hasContent) return new Array(784).fill(0);
+        if (penPoints.length < 2) return new Array(784).fill(0);
 
-        // Crop dimensions
-        const cropW = maxX - minX + 1;
-        const cropH = maxY - minY + 1;
+        // ── Bounding box from coordinates ─────────────────────────────
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const pt of penPoints) {
+            if (pt.x < minX) minX = pt.x;
+            if (pt.x > maxX) maxX = pt.x;
+            if (pt.y < minY) minY = pt.y;
+            if (pt.y > maxY) maxY = pt.y;
+        }
 
-        // We want to fit this into a 20x20 box, centered in 28x28
+        const cropW = maxX - minX;
+        const cropH = maxY - minY;
+
+        // If the drawing is essentially a single point/dot
+        if (cropW < 1 && cropH < 1) {
+            // Draw a centered dot
+            const outCanvas = document.createElement("canvas");
+            outCanvas.width = 28; outCanvas.height = 28;
+            const outCtx = outCanvas.getContext("2d");
+            outCtx.fillStyle = "white";
+            outCtx.fillRect(0, 0, 28, 28);
+            outCtx.fillStyle = "black";
+            outCtx.beginPath();
+            outCtx.arc(14, 14, 2, 0, Math.PI * 2);
+            outCtx.fill();
+            return extractInvertedPixels(outCtx);
+        }
+
+        // ── Scale to fit 20x20, centered in 28x28 ────────────────────
         const targetSize = 20;
         const scale = targetSize / Math.max(cropW, cropH);
-
         const scaledW = cropW * scale;
         const scaledH = cropH * scale;
+        const offsetX = 4 + (targetSize - scaledW) / 2;
+        const offsetY = 4 + (targetSize - scaledH) / 2;
 
-        // Create 28x28 final canvas
+        // ── Create 28x28 canvas and redraw strokes ───────────────────
         const outCanvas = document.createElement("canvas");
         outCanvas.width = 28;
         outCanvas.height = 28;
         const outCtx = outCanvas.getContext("2d");
 
-        // Fill with white background (model expects 0 blocks for white)
-        // Wait! Model expects 0 for BACKGROUND.
-        // We are drawing inverted logic later.
-        // Let's fill with BLACK (0,0,0) here? NO.
-        // Standard approach: Draw normally, then invert pixel values.
-
+        // White background
         outCtx.fillStyle = "white";
         outCtx.fillRect(0, 0, 28, 28);
 
-        // Draw the cropped image, centered
-        const dx = 4 + (20 - scaledW) / 2;
-        const dy = 4 + (20 - scaledH) / 2;
+        // Disable image smoothing for crisp, pixel-perfect lines
+        outCtx.imageSmoothingEnabled = false;
+        outCtx.lineCap = "round";
+        outCtx.lineJoin = "round";
 
-        outCtx.imageSmoothingEnabled = true;
-        outCtx.imageSmoothingQuality = "high";
+        for (const stroke of strokesToProcess) {
+            if (stroke.points.length < 2) continue;
 
-        outCtx.drawImage(
-            tempCanvas,
-            minX, minY, cropW, cropH,
-            dx, dy, scaledW, scaledH
-        );
+            outCtx.beginPath();
+            // Pen strokes → black, Eraser strokes → white
+            outCtx.strokeStyle = stroke.tool === "eraser" ? "white" : "black";
+            // Fixed line width: ~2px matches QuickDraw .npy stroke weight
+            outCtx.lineWidth = stroke.tool === "eraser" ? 3 : 2;
 
-        // Extract pixel data (RGBA)
+            const first = stroke.points[0];
+            outCtx.moveTo(
+                (first.x - minX) * scale + offsetX,
+                (first.y - minY) * scale + offsetY
+            );
+
+            for (let i = 1; i < stroke.points.length; i++) {
+                const pt = stroke.points[i];
+                outCtx.lineTo(
+                    (pt.x - minX) * scale + offsetX,
+                    (pt.y - minY) * scale + offsetY
+                );
+            }
+
+            outCtx.stroke();
+        }
+
+        return extractInvertedPixels(outCtx);
+    }
+
+    /**
+     * Extract 784-element pixel array from a 28x28 canvas context.
+     * Inverts values so white background → 0, black stroke → 255.
+     */
+    function extractInvertedPixels(outCtx) {
         const outData = outCtx.getImageData(0, 0, 28, 28).data;
         const pixels = [];
 
@@ -636,13 +787,12 @@
             const g = outData[i + 1];
             const b = outData[i + 2];
 
-            // Invert: White(255) -> 0 (Black/Background)
-            // Black(0) -> 255 (White/Stroke)
+            // Invert: White(255) → 0 (background), Black(0) → 255 (stroke)
             const darkest = Math.min(r, g, b);
             let inverted = 255 - darkest;
 
-            // Threshold low values to absolute 0
-            if (inverted < 20) inverted = 0;
+            // Threshold very faint values to clean 0
+            if (inverted < 15) inverted = 0;
 
             pixels.push(Math.floor(inverted));
         }
@@ -662,7 +812,7 @@
         Sound.playCorrect();
         if (sendTimer) clearInterval(sendTimer);
         drawingAllowed = false;
-        showOverlay('<i class="ph-duotone ph-check-fat"></i>', "Correct!", `Word: ${msg.word} (+${msg.score} pts)`);
+        showOverlay('<i class="ph-duotone ph-check-fat"></i>', "Correct!", `Word: ${msg.word} (+${msg.score} pts)`, 3000, "success");
         $("#game-word-display").innerHTML = `<span style="color:#66bb6a">${msg.word}</span>`;
     }
 

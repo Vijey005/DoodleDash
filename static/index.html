@@ -58,14 +58,19 @@
                 </div>
             </div>
 
-            <button id="btn-create-room" class="btn btn-primary btn-lg">
-                <i class="ph-bold ph-plus-circle"></i> Create Room
-            </button>
+            <div class="mode-buttons">
+                <button id="btn-solo" class="btn btn-primary mode-btn">
+                    <i class="ph-bold ph-user"></i> Play Solo
+                </button>
+                <button id="btn-create-room" class="btn btn-secondary mode-btn">
+                    <i class="ph-bold ph-users-three"></i> Create Room
+                </button>
+            </div>
 
-            <p style="text-align:center; margin: 15px 0;">— OR —</p>
+            <p style="text-align:center; margin: 12px 0; font-size: 0.95rem;">— OR JOIN A FRIEND —</p>
 
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="room-code-input" class="field-input" placeholder="CODE" maxlength="6"
+                <input type="text" id="room-code-input" class="field-input" placeholder="ROOM CODE" maxlength="6"
                     style="text-align:center; text-transform:uppercase; letter-spacing: 2px; font-weight: bold;">
                 <button id="btn-join-room" class="btn btn-secondary">
                     Join <i class="ph-bold ph-arrow-right"></i>
@@ -84,6 +89,10 @@
                 <div class="code-badge-wrap">
                     <span id="lobby-room-code" class="code-badge">??????</span>
                     <button id="btn-copy-code" class="btn-icon" title="Copy"><i class="ph-bold ph-copy"></i></button>
+                </div>
+                <div id="solo-easter-egg" class="hidden solo-egg">
+                    <i class="ph-duotone ph-pencil-simple"></i> Still no friends? That's depressing. You could still try
+                    inviting tho <i class="ph-duotone ph-eyes"></i>
                 </div>
             </div>
 

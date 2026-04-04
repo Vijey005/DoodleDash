@@ -120,11 +120,10 @@ async def draw_timer(room_id: str, seconds: int):
                 return
             if room.round_solved:
                 return
-            if remaining % 5 == 0 or remaining <= 10:
-                await game_manager.broadcast(room, {
-                    "type": "timer",
-                    "remaining": remaining,
-                })
+            await game_manager.broadcast(room, {
+                "type": "timer",
+                "remaining": remaining,
+            })
 
         # Time's up!
         room = game_manager.get_room(room_id)

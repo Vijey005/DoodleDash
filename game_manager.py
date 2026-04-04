@@ -129,6 +129,7 @@ class GameManager:
         self.rooms: Dict[str, Room] = {}
         self.player_room_map: Dict[str, str] = {}   # player_id -> room_id
         self.classes = classes   # all class labels from AI model
+        self.vote_timers: Dict[str, asyncio.Task] = {}   # room_id -> vote timer task
 
     # ── Room Management ───────────────────────────────────────────────────────
 
@@ -255,6 +256,12 @@ class GameManager:
             "round": room.current_round,
             "total_rounds": room.total_rounds,
         })
+        
+        # Start 20-second vote timer
+        self._cancel_vote_timer(room.room_id)
+        self.vote_timers[room.room_id] = asyncio.create_task(
+            self._vote_countdown(room, "category", 20)
+        )
 
     async def cast_category_vote(self, room: Room, player_id: str, category: str):
         if category not in room.category_options:
@@ -271,17 +278,25 @@ class GameManager:
         
         # Check if all connected players voted  
         if connected_ids <= set(room.category_votes.keys()):
+            self._cancel_vote_timer(room.room_id)
             await self.resolve_category_vote(room)
 
     async def resolve_category_vote(self, room: Room):
+        if room.state != GameState.CATEGORY_VOTE:
+            return
+        
         # Tally votes  
         vote_counts: Dict[str, int] = {}
         for cat in room.category_votes.values():
             vote_counts[cat] = vote_counts.get(cat, 0) + 1
         
-        max_votes = max(vote_counts.values())
-        winners = [c for c, v in vote_counts.items() if v == max_votes]
-        room.chosen_category = random.choice(winners)
+        if vote_counts:
+            max_votes = max(vote_counts.values())
+            winners = [c for c, v in vote_counts.items() if v == max_votes]
+            room.chosen_category = random.choice(winners)
+        else:
+            # No one voted — pick randomly
+            room.chosen_category = random.choice(room.category_options)
         
         await self.broadcast(room, {
             "type": "category_result",
@@ -336,6 +351,12 @@ class GameManager:
                 "words": room.word_options,
                 "drawer_nickname": room.players[room.current_drawer_id].nickname,
             })
+        
+        # Start 20-second word vote timer
+        self._cancel_vote_timer(room.room_id)
+        self.vote_timers[room.room_id] = asyncio.create_task(
+            self._vote_countdown(room, "word", 20)
+        )
 
     async def cast_word_vote(self, room: Room, player_id: str, word: str):
         if player_id == room.current_drawer_id:
@@ -347,9 +368,13 @@ class GameManager:
         non_drawer_ids = {p.player_id for p in room.get_connected_players() if p.player_id != room.current_drawer_id}
         
         if non_drawer_ids <= set(room.word_votes.keys()):
+            self._cancel_vote_timer(room.room_id)
             await self.resolve_word_vote(room)
 
     async def resolve_word_vote(self, room: Room):
+        if room.state != GameState.WORD_SELECT:
+            return
+        
         vote_counts: Dict[str, int] = {}
         for word in room.word_votes.values():
             vote_counts[word] = vote_counts.get(word, 0) + 1
@@ -359,6 +384,38 @@ class GameManager:
         room.current_word = random.choice(winners) if winners else random.choice(room.word_options)
         
         await self.start_drawing(room)
+
+    # ── Vote Timer Helpers ────────────────────────────────────────────────
+
+    def _cancel_vote_timer(self, room_id: str):
+        task = self.vote_timers.get(room_id)
+        if task and not task.done():
+            task.cancel()
+
+    async def _vote_countdown(self, room: Room, vote_type: str, seconds: int):
+        """Countdown timer for voting phases. Broadcasts ticks and auto-resolves."""
+        try:
+            for remaining in range(seconds, 0, -1):
+                await asyncio.sleep(1)
+                # Check if vote already resolved
+                if vote_type == "category" and room.state != GameState.CATEGORY_VOTE:
+                    return
+                if vote_type == "word" and room.state != GameState.WORD_SELECT:
+                    return
+                
+                await self.broadcast(room, {
+                    "type": "vote_timer",
+                    "remaining": remaining,
+                    "vote_type": vote_type,
+                })
+            
+            # Time's up — auto-resolve
+            if vote_type == "category" and room.state == GameState.CATEGORY_VOTE:
+                await self.resolve_category_vote(room)
+            elif vote_type == "word" and room.state == GameState.WORD_SELECT:
+                await self.resolve_word_vote(room)
+        except asyncio.CancelledError:
+            pass
 
     async def start_drawing(self, room: Room):
         room.state = GameState.GAME_LOOP

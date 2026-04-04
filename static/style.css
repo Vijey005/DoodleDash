@@ -127,6 +127,42 @@ h3,
     transform: rotate(1deg);
 }
 
+.mode-buttons {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 12px;
+    width: 100%;
+}
+
+.mode-btn {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    width: auto !important;
+    font-size: 1.1rem !important;
+    padding: 0.8rem 0.5rem !important;
+    white-space: nowrap;
+    border-radius: 14px !important;
+    box-shadow: 3px 3px 0 var(--ink-primary) !important;
+}
+
+.mode-btn:hover {
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 5px 5px 0 var(--ink-primary) !important;
+}
+
+.solo-egg {
+    text-align: center;
+    padding: 8px 14px;
+    background: var(--hl-yellow);
+    border: 2px dashed var(--ink-secondary);
+    border-radius: 10px;
+    font-family: var(--font-hand);
+    font-size: 0.9rem;
+    color: var(--ink-secondary);
+    margin-top: 8px;
+    transform: rotate(-0.5deg);
+}
+
 /* ── UI Components ──────────────────────────────────────────────────────── */
 
 /* Doodle Card (The main container style) */
@@ -674,7 +710,6 @@ canvas {
     border-radius: 30px;
     padding: 3rem;
     text-align: center;
-    box-shadow: 10px 10px 0 var(--hl-mint);
     animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
@@ -689,6 +724,19 @@ canvas {
     transform: rotate(-2deg);
 }
 
+/* Overlay type variants */
+.overlay-success {
+    box-shadow: 10px 10px 0 var(--hl-mint);
+}
+
+.overlay-fail {
+    box-shadow: 10px 10px 0 var(--hl-pink);
+}
+
+.overlay-info {
+    box-shadow: 10px 10px 0 var(--hl-cyan);
+}
+
 @keyframes popIn {
     from {
         opacity: 0;
@@ -698,6 +746,15 @@ canvas {
     to {
         opacity: 1;
         transform: scale(1) rotate(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.15);
     }
 }
 
@@ -1084,6 +1141,11 @@ canvas {
     #screen-entry .btn-lg {
         font-size: 1.15rem;
         padding: 0.7rem 1.2rem;
+    }
+
+    .mode-btn {
+        font-size: 0.95rem !important;
+        padding: 0.7rem 0.3rem !important;
     }
 
     #screen-entry p[style*="margin: 15px"] {

@@ -15,9 +15,9 @@ Built with **FastAPI**, **WebSockets**, **TensorFlow/Keras**, and a hand-crafted
 
 ## 🎮 How the Game Works
 
-1. **Create or Join a Room** — A host creates a room and shares the 6-character code. Others join using the code.
-2. **Vote on a Category** — All players vote on a theme (Animals, Food, Nature, Objects, etc.).
-3. **Pick a Word** — Non-drawing players pick a word for the drawer from the chosen category.
+1. **Create or Join a Room** — Play solo for practice, host a room and share the 6-character code, or join a friend's room.
+2. **Vote on a Category** — All players vote on a theme (Animals, Food, Nature, Objects, etc.) within a 20-second timer.
+3. **Pick a Word** — Non-drawing players pick a word for the drawer from the chosen category within a 20-second timer (auto-selects if time runs out).
 4. **Draw!** — The selected drawer sketches the word on a shared canvas. All other players watch the strokes appear in real-time.
 5. **AI Guesses Live** — As the drawer sketches, the canvas is downscaled to 28×28 pixels and sent to a trained neural network every 250ms. The AI's top guess and confidence are shown to everyone.
 6. **Scoring** — If the AI correctly identifies the drawing, the drawer earns points. Faster drawings earn more points (up to 1000 per round).
@@ -140,16 +140,18 @@ The AI model is a **Convolutional Neural Network (CNN)** trained on Google's [Qu
 
 ## 🎨 Game Features
 
+- ✅ **Solo Mode Discovery** — Easily start a solo practice session or host friends
 - ✅ **Multiplayer rooms** with shareable room codes
 - ✅ **Real-time canvas sync** — watchers see strokes as they happen
-- ✅ **Category & word voting** — democratic game flow
+- ✅ **Category & word voting** — democratic game flow with 20-second timers
 - ✅ **AI live prediction** with confidence meter
 - ✅ **Time-based scoring** — faster = more points
 - ✅ **Rapid tiebreaker round** — sudden death for tied players
 - ✅ **In-game chat** with desktop and mobile support
 - ✅ **Custom avatars** — pick eyes, mouth, and skin color
 - ✅ **Drawing tools** — pen colors, eraser, clear canvas
-- ✅ **Sound effects** — procedurally generated via Web Audio API
+- ✅ **Enhanced Sound effects** — procedurally generated distinct tones for positive/negative events
+- ✅ **Visual Feedback** — color-coded popups (success/fail) for intuitive game flow
 - ✅ **Fully responsive** — optimized for both desktop and mobile
 - ✅ **Sketchbook UI theme** — hand-drawn aesthetic with graph paper background
 
