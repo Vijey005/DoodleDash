@@ -152,7 +152,7 @@ The AI model is a **Convolutional Neural Network (CNN)** trained on Google's [Qu
 - ✅ **Drawing tools** — pen colors, eraser, clear canvas
 - ✅ **Enhanced Sound effects** — procedurally generated distinct tones for positive/negative events
 - ✅ **Visual Feedback** — color-coded popups (success/fail) for intuitive game flow
-- ✅ **Fully responsive** — optimized for both desktop and mobile
+- ✅ **Fully responsive** — optimized for both desktop and mobile with intuitive back navigation
 - ✅ **Sketchbook UI theme** — hand-drawn aesthetic with graph paper background
 
 ---

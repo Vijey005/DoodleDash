@@ -279,6 +279,18 @@
             if (e.key === "Enter") sendChat("mobile");
         };
 
+        // Back buttons
+        $("#btn-back-lobby").onclick = () => {
+            if (ws) ws.close();
+            ws = null;
+            roomId = null;
+            isHost = false;
+            isSoloMode = false;
+            showScreen("entry");
+            Sound.playClick();
+        };
+
+
         // Try to unlock audio on interaction
         document.body.addEventListener('click', () => { Sound.init(); Sound.resume(); }, { once: true });
         document.body.addEventListener('touchstart', () => { Sound.init(); Sound.resume(); }, { once: true });
