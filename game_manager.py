@@ -148,10 +148,28 @@ class GameManager:
         room = self.get_room(room_id)
         if not room:
             return None
+        
+        # Handle reconnection
+        if player_id in room.players:
+            player = room.players[player_id]
+            player.is_connected = True
+            player.websocket = websocket
+            player.nickname = nickname
+            player.avatar_eyes = avatar_eyes
+            player.avatar_mouth = avatar_mouth
+            player.avatar_skin = avatar_skin
+            self.player_room_map[player_id] = room_id
+            
+            # If no one else is connected, this player takes host privileges
+            if not any(p.is_connected and p.player_id != player_id for p in room.players.values()):
+                player.is_host = True
+            
+            return player
+
         if room.state != GameState.LOBBY:
             return None
         
-        is_host = len(room.players) == 0
+        is_host = len(room.get_connected_players()) == 0
         player = Player(
             player_id=player_id,
             nickname=nickname,
@@ -175,25 +193,28 @@ class GameManager:
             return None
         
         player = room.players.get(player_id)
+        nickname = "Someone"
         if player:
             player.is_connected = False
             player.websocket = None
+            nickname = player.nickname
         
         del self.player_room_map[player_id]
         
         connected = room.get_connected_players()
         
-        # If everyone left, remove the room  
+        # If everyone left, DO NOT remove the room immediately.
+        # This allows mobile users who minimized the browser to reconnect.
         if not connected:
-            del self.rooms[room_id]
-            return room_id
+            return room_id, nickname
         
         # If host left, assign new host  
         if player and player.is_host:
-            player.is_host = False
-            connected[0].is_host = True
+            if connected:
+                player.is_host = False
+                connected[0].is_host = True
         
-        return room_id
+        return room_id, nickname
 
     # ── Broadcast Helpers ─────────────────────────────────────────────────────
 

@@ -281,7 +281,10 @@
 
         // Back buttons
         $("#btn-back-lobby").onclick = () => {
-            if (ws) ws.close();
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+            }
             ws = null;
             roomId = null;
             isHost = false;
@@ -352,6 +355,12 @@
         ws.onclose = () => {
             if (sendTimer) clearInterval(sendTimer);
             toast("Disconnected 🔌", "error");
+            if (roomId) {
+                setTimeout(() => {
+                    toast("Reconnecting...", "info");
+                    connectWebSocket();
+                }, 2000);
+            }
         };
     }
 
@@ -365,7 +374,7 @@
             case "error": toast(msg.message, "error"); Sound.playError(); break;
             case "room_state": onRoomState(msg.room); break;
             case "player_joined": if (msg.player.player_id !== playerId) { toast(`${msg.player.nickname} joined!`, "success"); Sound.playJoin(); } break;
-            case "player_left": toast(`Someone left.`, "info"); Sound.playLeave(); break;
+            case "player_left": toast(`${msg.nickname || "Someone"} left.`, "info"); Sound.playLeave(); break;
 
             case "category_vote": onCategoryVote(msg); break;
             case "vote_update": $("#vote-status").textContent = `${msg.vote_count}/${msg.total_players} voted`; break;

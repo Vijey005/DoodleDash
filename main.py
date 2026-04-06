@@ -289,13 +289,15 @@ async def ws_endpoint(websocket: WebSocket, room_id: str):
 
     except WebSocketDisconnect:
         if player_id:
-            left_room_id = game_manager.leave_room(player_id)
-            if left_room_id:
+            res = game_manager.leave_room(player_id)
+            if res:
+                left_room_id, left_nickname = res
                 room = game_manager.get_room(left_room_id)
                 if room:
                     await game_manager.broadcast(room, {
                         "type": "player_left",
                         "player_id": player_id,
+                        "nickname": left_nickname
                     })
                     await game_manager.broadcast_room_state(room)
     except Exception as e:
