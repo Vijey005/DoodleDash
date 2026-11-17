@@ -473,34 +473,81 @@ class GameManager:
     def _make_hint(self, word: str) -> str:
         return " ".join("_" if c != " " else "  " for c in word)
 
-    async def process_ai_guess(self, room: Room, guess: str, confidence: float, top_guesses: list):
+    # ── Scoring Constants (Skribbl.io-style) ───────────────────────────────────────────
+    # Simple, readable scores: Base 100 pts + up to 50 pts time bonus = 150 max
+    SCORE_BASE = 100
+    SCORE_TIME_BONUS_MAX = 50
+
+    # ── Anti-fluke Guard Constants ──────────────────────────────────────────────
+    # Prevents the AI from ending a round instantly on a lucky partial stroke.
+    # Minimum elapsed seconds before a correct guess can end the round.
+    MIN_DRAW_TIME = 5.0
+    # Minimum number of completed pen strokes required before the round can be solved.
+    MIN_STROKES = 2
+    # Required confidence right at MIN_DRAW_TIME (eases to BASE_CONF over GRACE_WINDOW).
+    EARLY_CONF = 0.95
+    BASE_CONF  = 0.70
+    # Seconds over which confidence requirement linearly drops from EARLY_CONF to BASE_CONF.
+    GRACE_WINDOW = 15.0
+
+    async def process_ai_guess(self, room: Room, guess: str, confidence: float,
+                               top_guesses: list, stroke_count: int = 0):
         if room.state != GameState.GAME_LOOP:
             return
-        
+
         elapsed = time.time() - room.draw_start_time
         is_correct = guess.lower() == room.current_word.lower()
-        
+
+        # ── Anti-fluke guard ─────────────────────────────────────────────────────
+        # Applied only when the guess would otherwise end the round.
+        can_solve = True
+        guard_reason = None
+
+        if is_correct and not room.round_solved:
+            if elapsed < self.MIN_DRAW_TIME:
+                # Too early -- user hasn't had enough time to draw anything meaningful
+                can_solve = False
+                guard_reason = "too_early"
+            elif stroke_count < self.MIN_STROKES:
+                # Too few strokes -- single-line lucky guesses don't win
+                can_solve = False
+                guard_reason = "too_few_strokes"
+            else:
+                # Time-scaled confidence threshold.
+                # Confidence requirement slides from EARLY_CONF to BASE_CONF
+                # over the GRACE_WINDOW seconds after MIN_DRAW_TIME.
+                grace_elapsed = max(0.0, elapsed - self.MIN_DRAW_TIME)
+                t = min(1.0, grace_elapsed / self.GRACE_WINDOW)
+                required_conf = self.EARLY_CONF - t * (self.EARLY_CONF - self.BASE_CONF)
+                if confidence < required_conf:
+                    can_solve = False
+                    guard_reason = "low_confidence"
+
         guess_data = {
             "type": "ai_guess",
             "guess": guess,
             "confidence": round(confidence * 100, 1),
-            "correct": is_correct,
+            "correct": is_correct and can_solve,
             "elapsed": round(elapsed, 1),
             "top_guesses": top_guesses[:5],
+            "guard_active": is_correct and not can_solve,
+            "guard_reason": guard_reason,
         }
-        
+
         await self.broadcast(room, guess_data)
-        
-        if is_correct and not room.round_solved:
+
+        if is_correct and can_solve and not room.round_solved:
             room.round_solved = True
-            # Score: 1000 max, decreasing over time  
-            time_bonus = max(0, 1.0 - (elapsed / room.draw_time_limit))
-            room.round_score = int(200 + 800 * time_bonus)
-            
+
+            # ── Skribbl.io-style scoring ──────────────────────────────
+            # Base 100 pts + time bonus up to 50 pts (faster = more bonus)
+            time_ratio = max(0.0, 1.0 - (elapsed / room.draw_time_limit))
+            room.round_score = self.SCORE_BASE + int(self.SCORE_TIME_BONUS_MAX * time_ratio)
+
             drawer = room.players.get(room.current_drawer_id)
             if drawer:
                 drawer.score += room.round_score
-            
+
             await self.broadcast(room, {
                 "type": "round_solved",
                 "word": room.current_word,
@@ -508,7 +555,7 @@ class GameManager:
                 "drawer_id": room.current_drawer_id,
                 "elapsed": round(elapsed, 1),
             })
-            
+
             await asyncio.sleep(3)
             await self.end_turn(room)
 
@@ -601,8 +648,8 @@ class GameManager:
         
         if guess.lower() == room.rapid_word.lower() and confidence > 0.80:
             room.rapid_winner = player_id
-            # Bonus points  
-            room.players[player_id].score += 500
+            # Tiebreaker bonus: 50 pts (matches the new skribbl.io-style scale)
+            room.players[player_id].score += 50
             
             await self.broadcast(room, {
                 "type": "rapid_winner",

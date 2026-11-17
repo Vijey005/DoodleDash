@@ -677,7 +677,9 @@
         if (!canvas || !drawingAllowed) return;
         try {
             const pixels = getCanvas28x28FromStrokes();
-            send({ action: "draw_data", pixels: pixels });
+            // Send stroke_count so the server can apply the anti-fluke guard
+            const penStrokes = allStrokes.filter(s => s.tool === "pen").length;
+            send({ action: "draw_data", pixels: pixels, stroke_count: penStrokes });
         } catch (e) { console.error("Canvas error:", e); }
     }
 
@@ -827,6 +829,24 @@
         $("#ai-confidence").textContent = `${conf}%`;
         const badge = $("#ai-confidence");
         badge.style.background = conf > 80 ? "#66bb6a" : (conf > 50 ? "#ffa726" : "#ef5350");
+
+        // Anti-fluke guard: show a hint when AI sees the right word but
+        // cannot yet end the round (too early / too few strokes / low confidence)
+        const hintEl = $("#guard-hint");
+        if (hintEl) {
+            if (msg.guard_active) {
+                const hints = {
+                    too_early: "Keep drawing! ⏳",
+                    too_few_strokes: "Add more detail! ✏",
+                    low_confidence: "Almost there, keep going!",
+                };
+                hintEl.textContent = hints[msg.guard_reason] || "Keep drawing!";
+                hintEl.style.visibility = "visible";
+            } else {
+                hintEl.textContent = "";
+                hintEl.style.visibility = "hidden";
+            }
+        }
     }
 
     function onRoundSolved(msg) {
@@ -848,7 +868,7 @@
                     <div class="sb-name">${p.nickname}</div>
                     <div class="sb-score">${p.score} pts</div>
                 </div>
-                ${p.score >= 1000 ? '<i class="ph-fill ph-star" style="color:#fbc02d"></i>' : ''}
+                ${p.score >= 100 ? '<i class="ph-fill ph-star" style="color:#fbc02d"></i>' : ''}
             </div>
         `).join("");
     }

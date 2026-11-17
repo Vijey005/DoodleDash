@@ -11,6 +11,8 @@
 
 Built with **FastAPI**, **WebSockets**, **TensorFlow/Keras**, and a hand-crafted **HTML5 Canvas** frontend.
 
+🌐 **Play Live:** [https://vijey-1-0-doodledash.hf.space/](https://vijey-1-0-doodledash.hf.space/)
+
 ---
 
 ## 🎮 How the Game Works
@@ -28,15 +30,15 @@ Built with **FastAPI**, **WebSockets**, **TensorFlow/Keras**, and a hand-crafted
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| **Backend** | [FastAPI](https://fastapi.tiangolo.com/) (Python) | REST API + WebSocket server |
-| **Real-Time** | WebSockets | Bi-directional communication for live drawing, chat, and game events |
-| **AI Model** | TensorFlow / Keras | CNN trained on [Google QuickDraw](https://quickdraw.withgoogle.com/data) dataset (86 classes) |
-| **Frontend** | Vanilla HTML5, CSS3, JavaScript | Canvas drawing, game UI, responsive design |
-| **Fonts** | Google Fonts (Balsamiq Sans, Patrick Hand) | Hand-drawn sketchbook aesthetic |
-| **Icons** | [Phosphor Icons](https://phosphoricons.com/) | UI iconography |
-| **Audio** | Web Audio API | Procedurally generated sound effects (no audio files needed) |
+| Layer               | Technology                                       | Purpose                                                                                     |
+| ------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| **Backend**   | [FastAPI](https://fastapi.tiangolo.com/) (Python) | REST API + WebSocket server                                                                 |
+| **Real-Time** | WebSockets                                       | Bi-directional communication for live drawing, chat, and game events                        |
+| **AI Model**  | TensorFlow / Keras                               | CNN trained on[Google QuickDraw](https://quickdraw.withgoogle.com/data) dataset (86 classes) |
+| **Frontend**  | Vanilla HTML5, CSS3, JavaScript                  | Canvas drawing, game UI, responsive design                                                  |
+| **Fonts**     | Google Fonts (Balsamiq Sans, Patrick Hand)       | Hand-drawn sketchbook aesthetic                                                             |
+| **Icons**     | [Phosphor Icons](https://phosphoricons.com/)      | UI iconography                                                                              |
+| **Audio**     | Web Audio API                                    | Procedurally generated sound effects (no audio files needed)                                |
 
 ---
 
@@ -63,12 +65,12 @@ DoodleDash/
 
 ### 📝 About Extra Files
 
-| File | Why It Exists |
-|---|---|
+| File                       | Why It Exists                                                                                                                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `static/test_model.html` | A standalone debug page for testing the AI model. You can draw on a canvas, see the 28×28 downscaled input the model receives, and check prediction results. Useful during development to diagnose model accuracy issues. |
-| `static/sound.js` | An earlier standalone sound manager module using the Web Audio API. The sound logic was later integrated directly into `game.js`, but this file is kept as a reference implementation. |
-| `test_e2e.py` | End-to-end test suite that validates WebSocket connections, room creation, game flow, and AI predictions programmatically. |
-| `ai_model/data/` | Contains the QuickDraw `.npy` training data files (~10GB total). Excluded from the repo via `.gitignore` — only the trained model (`.h5`) is committed. |
+| `static/sound.js`        | An earlier standalone sound manager module using the Web Audio API. The sound logic was later integrated directly into`game.js`, but this file is kept as a reference implementation.                                    |
+| `test_e2e.py`            | End-to-end test suite that validates WebSocket connections, room creation, game flow, and AI predictions programmatically.                                                                                                 |
+| `ai_model/data/`         | Contains the QuickDraw`.npy` training data files (~10GB total). Excluded from the repo via `.gitignore` — only the trained model (`.h5`) is committed.                                                              |
 
 ---
 

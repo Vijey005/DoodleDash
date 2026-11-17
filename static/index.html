@@ -166,6 +166,8 @@
             <main class="canvas-area">
                 <div class="canvas-wrapper">
                     <canvas id="draw-canvas" width="600" height="600"></canvas>
+                    <!-- Guard hint: absolute overlay, never affects canvas layout -->
+                    <div id="guard-hint" style="visibility:hidden; position:absolute; bottom:12px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:0.85rem; font-weight:700; color:#f57c00; background:#fff3e0; border:2px solid #ffa726; border-radius:20px; padding:5px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none; z-index:10;"></div>
                 </div>
 
                 <!-- Tools -->

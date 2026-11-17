@@ -72,6 +72,11 @@ async def index():
     return FileResponse("static/index.html")
 
 
+@app.get("/test-model")
+async def test_model_page():
+    return FileResponse("static/test_model.html")
+
+
 # ─── AI Prediction Helper ─────────────────────────────────────────────────────
 
 def predict(pixels: list[float]) -> tuple[str, float, list[dict]]:
@@ -229,7 +234,8 @@ async def ws_endpoint(websocket: WebSocket, room_id: str):
 
                 if room.state == GameState.GAME_LOOP and player_id == room.current_drawer_id:
                     guess, confidence, top_guesses = predict(pixels)
-                    await game_manager.process_ai_guess(room, guess, confidence, top_guesses)
+                    stroke_count = data.get("stroke_count", 0)
+                    await game_manager.process_ai_guess(room, guess, confidence, top_guesses, stroke_count)
 
                     # Start timer on first draw data if not already running
                     if room_id not in room_timers or room_timers[room_id].done():
@@ -307,6 +313,20 @@ async def ws_endpoint(websocket: WebSocket, room_id: str):
 
 
 # ─── REST: Create / Query Room ────────────────────────────────────────────────
+
+@app.post("/api/test-predict")
+async def test_predict(request: Request):
+    data = await request.json()
+    pixels = data.get("pixels", [])
+    if not pixels or model is None:
+        return {"error": "Model not loaded or empty canvas"}
+    guess, confidence, top_guesses = predict(pixels)
+    return {
+        "guess": guess,
+        "confidence": round(confidence * 100, 1),
+        "top_guesses": top_guesses
+    }
+
 
 @app.post("/api/create-room")
 async def create_room():
