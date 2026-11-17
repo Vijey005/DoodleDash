@@ -830,8 +830,7 @@
         const badge = $("#ai-confidence");
         badge.style.background = conf > 80 ? "#66bb6a" : (conf > 50 ? "#ffa726" : "#ef5350");
 
-        // Anti-fluke guard: show a hint when AI sees the right word but
-        // cannot yet end the round (too early / too few strokes / low confidence)
+        // Anti-fluke guard: show a hint when AI recognizes the word but user needs to draw a bit more
         const hintEl = $("#guard-hint");
         if (hintEl) {
             if (msg.guard_active) {
@@ -841,10 +840,10 @@
                     low_confidence: "Almost there, keep going!",
                 };
                 hintEl.textContent = hints[msg.guard_reason] || "Keep drawing!";
-                hintEl.style.visibility = "visible";
+                hintEl.style.display = "inline-block";
             } else {
                 hintEl.textContent = "";
-                hintEl.style.visibility = "hidden";
+                hintEl.style.display = "none";
             }
         }
     }

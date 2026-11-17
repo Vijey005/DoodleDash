@@ -479,16 +479,10 @@ class GameManager:
     SCORE_TIME_BONUS_MAX = 50
 
     # ── Anti-fluke Guard Constants ──────────────────────────────────────────────
-    # Prevents the AI from ending a round instantly on a lucky partial stroke.
-    # Minimum elapsed seconds before a correct guess can end the round.
-    MIN_DRAW_TIME = 5.0
-    # Minimum number of completed pen strokes required before the round can be solved.
-    MIN_STROKES = 2
-    # Required confidence right at MIN_DRAW_TIME (eases to BASE_CONF over GRACE_WINDOW).
-    EARLY_CONF = 0.95
-    BASE_CONF  = 0.70
-    # Seconds over which confidence requirement linearly drops from EARLY_CONF to BASE_CONF.
-    GRACE_WINDOW = 15.0
+    # Minimum elapsed seconds to prevent instant 1-second lucky guesses
+    MIN_DRAW_TIME = 3.5
+    # Standard AI confidence required to solve the round
+    REQUIRED_CONFIDENCE = 0.65
 
     async def process_ai_guess(self, room: Room, guess: str, confidence: float,
                                top_guesses: list, stroke_count: int = 0):
@@ -499,29 +493,19 @@ class GameManager:
         is_correct = guess.lower() == room.current_word.lower()
 
         # ── Anti-fluke guard ─────────────────────────────────────────────────────
-        # Applied only when the guess would otherwise end the round.
+        # Prevents rounds from finishing prematurely on incomplete sketches:
+        # 1. Drawer must sketch for at least MIN_DRAW_TIME seconds
+        # 2. AI model confidence must be at least REQUIRED_CONFIDENCE
         can_solve = True
         guard_reason = None
 
         if is_correct and not room.round_solved:
             if elapsed < self.MIN_DRAW_TIME:
-                # Too early -- user hasn't had enough time to draw anything meaningful
                 can_solve = False
                 guard_reason = "too_early"
-            elif stroke_count < self.MIN_STROKES:
-                # Too few strokes -- single-line lucky guesses don't win
+            elif confidence < self.REQUIRED_CONFIDENCE:
                 can_solve = False
-                guard_reason = "too_few_strokes"
-            else:
-                # Time-scaled confidence threshold.
-                # Confidence requirement slides from EARLY_CONF to BASE_CONF
-                # over the GRACE_WINDOW seconds after MIN_DRAW_TIME.
-                grace_elapsed = max(0.0, elapsed - self.MIN_DRAW_TIME)
-                t = min(1.0, grace_elapsed / self.GRACE_WINDOW)
-                required_conf = self.EARLY_CONF - t * (self.EARLY_CONF - self.BASE_CONF)
-                if confidence < required_conf:
-                    can_solve = False
-                    guard_reason = "low_confidence"
+                guard_reason = "low_confidence"
 
         guess_data = {
             "type": "ai_guess",
